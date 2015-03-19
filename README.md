@@ -25,7 +25,7 @@ Export structured log records from the systemd journal and send them to a
 Graylog2 server as GELF messages.
 
 positional arguments:
-  target                graylog2 server host:port
+  target                graylog2 server host:port (UDP)
 
 optional arguments:
   -h, --help            show this help message and exit

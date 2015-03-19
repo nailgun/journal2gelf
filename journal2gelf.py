@@ -31,7 +31,7 @@ def main():
     parser = argparse.ArgumentParser(description="Export structured log records from the systemd journal and "
                                                  "send them to a Graylog2 server as GELF messages.")
     parser.add_argument('target', nargs=1,
-                        help="graylog2 server host:port")
+                        help="graylog2 server host:port (UDP)")
     parser.add_argument('-e', '--exclude', metavar='FIELD', action='append', default=[],
                         help="exclude journal field FIELD")
     parser.add_argument('-E', '--no-defaults', action='store_true',
