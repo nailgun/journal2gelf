@@ -94,14 +94,8 @@ class Converter(object):
 def read_journal(j):
     while True:
         j.wait()
-        has_records = True
-        while has_records:
-            try:
-                record = j.next()
-            except StopIteration:
-                has_records = False
-            else:
-                yield record
+        for record in j:
+            yield record
 
 
 # See https://www.graylog.org/resources/gelf-2/#specs
