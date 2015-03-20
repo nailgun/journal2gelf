@@ -36,6 +36,8 @@ def main():
                         help="exclude journal field FIELD")
     parser.add_argument('-E', '--no-defaults', action='store_true',
                         help="don't exclude fields, excluded by default")
+    parser.add_argument('-u', '--uppercase', action='store_true',
+                        help="don't lower field names in output")
     parser.add_argument('--debug', action='store_true',
                         help="print GELF jsons to stdout")
     parser.add_argument('--merge', action='store_true',
@@ -54,6 +56,7 @@ def main():
     conv = Converter(host, port, args.exclude, not args.no_defaults)
     conv.debug = args.debug
     conv.send = not args.dry_run
+    conv.lower = not args.uppercase
     merge = args.merge
 
     # delete references so gc can collect
@@ -71,6 +74,7 @@ class Converter(object):
             self.exclude_fields.update(default_exclude_fields)
         self.debug = False
         self.send = True
+        self.lower = True
 
     def run(self, merge=False):
         j = journal.Reader(converters=field_converters)
@@ -84,7 +88,7 @@ class Converter(object):
             j.get_previous()
 
         for record in read_journal(j):
-            record = convert_record(record, excludes=self.exclude_fields)
+            record = convert_record(record, excludes=self.exclude_fields, lower=self.lower)
             if self.send:
                 self.gelf.log(record)
             if self.debug:
@@ -100,7 +104,7 @@ def read_journal(j):
 
 # See https://www.graylog.org/resources/gelf-2/#specs
 # And http://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html
-def convert_record(src, excludes=set()):
+def convert_record(src, excludes=set(), lower=True):
     dst = {
         'version': '1.1',
         'host': src.pop(b'_HOSTNAME', None),
@@ -113,6 +117,8 @@ def convert_record(src, excludes=set()):
     for k, v in src.iteritems():
         if k in excludes:
             continue
+        if lower:
+            k = k.lower()
         dst['_'+k] = v
 
     return dst
