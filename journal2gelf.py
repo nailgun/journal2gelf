@@ -81,6 +81,7 @@ class Converter(object):
             except StopIteration:
                 log.warning("Journal is empty. Or maybe you don't have permissions to read it.")
             j.seek_tail()
+            j.get_previous()
 
         for record in read_journal(j):
             record = convert_record(record, excludes=self.exclude_fields)
