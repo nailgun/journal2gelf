@@ -1,15 +1,22 @@
 #!/usr/bin/env python
 from __future__ import division, absolute_import
 
+import os
 import sys
+import time
 import json
+import errno
+import signal
 import logging
 import argparse
+import threading
 
 import gelfclient
 from systemd import journal
 
 log = logging.getLogger('journal2gelf')
+cursor_path = '/var/lib/journal2gelf/cursor'
+cursor_save_interval = 60
 default_exclude_fields = frozenset([
     b'__MONOTONIC_TIMESTAMP',
     b'_MACHINE_ID',
@@ -41,7 +48,7 @@ def main():
     parser.add_argument('--debug', action='store_true',
                         help="print GELF jsons to stdout")
     parser.add_argument('--merge', action='store_true',
-                        help="send existing records first")
+                        help="send unsent records at first")
     parser.add_argument('--dry-run', action='store_true',
                         help="don't send anything to graylog")
     args = parser.parse_args()
@@ -57,13 +64,25 @@ def main():
     conv.debug = args.debug
     conv.send = not args.dry_run
     conv.lower = not args.uppercase
-    merge = args.merge
 
-    # delete references so gc can collect
-    del parser
-    del args
+    cursor = load_cursor()
 
-    conv.run(merge)
+    def converter_thread():
+        conv.run(args.merge, cursor)
+
+    t = threading.Thread(target=converter_thread, name='ConverterThread')
+    t.daemon = True
+    t.start()
+
+    def sig_handler(*a):
+        if conv.cursor:
+            save_cursor(conv.cursor)
+        sys.exit(0)
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(sig, sig_handler)
+
+    cursor_thread(conv)
 
 
 class Converter(object):
@@ -75,19 +94,31 @@ class Converter(object):
         self.debug = False
         self.send = True
         self.lower = True
+        self.cursor = None
 
-    def run(self, merge=False):
+    def run(self, merge=False, cursor=None):
         j = journal.Reader(converters=field_converters)
 
-        if not merge:
-            try:
-                j.next()
-            except StopIteration:
-                log.warning("Journal is empty. Or maybe you don't have permissions to read it.")
+        try:
+            j.next()
+        except StopIteration:
+            log.warning("Journal is empty. Or maybe you don't have permissions to read it.")
+        finally:
+            j.seek_head()
+
+        if merge:
+            if cursor:
+                j.seek_cursor(cursor)
+                try:
+                    j.next()
+                except StopIteration:
+                    pass
+        else:
             j.seek_tail()
             j.get_previous()
 
         for record in read_journal(j):
+            self.cursor = record['__CURSOR']
             record = convert_record(record, excludes=self.exclude_fields, lower=self.lower)
             if self.send:
                 self.gelf.log(record)
@@ -170,6 +201,41 @@ field_converters = {
     b'LEADER': int,
     b'CODE_LINE': int
 }
+
+
+def cursor_thread(conv):
+    mkdir_p(os.path.dirname(cursor_path))
+
+    last_saved = None
+    while True:
+        time.sleep(cursor_save_interval)
+        if conv.cursor != last_saved:
+            save_cursor(conv.cursor)
+
+
+def save_cursor(cursor):
+    try:
+        file(cursor_path, 'w').write(cursor)
+    except:
+        log.exception('Failed to save cursor:')
+
+
+def load_cursor():
+    try:
+        return file(cursor_path, 'r').read()
+    except IOError:
+        return None
+
+
+# http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as e:
+        if e.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
 
 
 if __name__ == '__main__':
