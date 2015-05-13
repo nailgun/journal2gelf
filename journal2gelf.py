@@ -112,7 +112,8 @@ class Converter(object):
                 try:
                     j.next()
                 except StopIteration:
-                    pass
+                    # cursor not found, journal was rotated
+                    j.seek_head()
         else:
             j.seek_tail()
             j.get_previous()
