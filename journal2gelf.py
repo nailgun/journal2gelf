@@ -17,6 +17,7 @@ from systemd import journal
 
 log = logging.getLogger('journal2gelf')
 cursor_path = '/var/lib/journal2gelf/cursor'
+mark_message_id = '2a8d83d2eec744b4aa38d766915b3147'
 cursor_save_interval = 60
 default_exclude_fields = frozenset([
     b'__MONOTONIC_TIMESTAMP',
@@ -88,7 +89,7 @@ def main():
     if args.mark_interval:
         def mark_thread():
             while True:
-                journal.send('-- MARK --', PRIORITY=syslog.LOG_INFO)
+                journal.send('-- MARK --', PRIORITY=syslog.LOG_INFO, MESSAGE_ID=mark_message_id)
                 time.sleep(args.mark_interval)
 
         t = threading.Thread(target=mark_thread, name='MarkThread')
