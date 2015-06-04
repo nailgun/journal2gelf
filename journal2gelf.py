@@ -6,6 +6,7 @@ import sys
 import time
 import json
 import errno
+import syslog
 import signal
 import logging
 import argparse
@@ -51,6 +52,8 @@ def main():
                         help="send unsent records at first")
     parser.add_argument('--dry-run', action='store_true',
                         help="don't send anything to graylog")
+    parser.add_argument('-m', '--mark-interval', metavar='SECONDS', type=int,
+                        help="write alive mark to journal every SECONDS, disabled by default")
     args = parser.parse_args()
 
     try:
@@ -67,13 +70,6 @@ def main():
 
     cursor = load_cursor()
 
-    def converter_thread():
-        conv.run(args.merge, cursor)
-
-    t = threading.Thread(target=converter_thread, name='ConverterThread')
-    t.daemon = True
-    t.start()
-
     def sig_handler(*a):
         if conv.cursor:
             save_cursor(conv.cursor)
@@ -81,6 +77,23 @@ def main():
 
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, sig_handler)
+
+    def converter_thread():
+        conv.run(args.merge, cursor)
+
+    t = threading.Thread(target=converter_thread, name='ConverterThread')
+    t.daemon = True
+    t.start()
+
+    if args.mark_interval:
+        def mark_thread():
+            while True:
+                journal.send('-- MARK --', PRIORITY=syslog.LOG_INFO)
+                time.sleep(args.mark_interval)
+
+        t = threading.Thread(target=mark_thread, name='MarkThread')
+        t.daemon = True
+        t.start()
 
     cursor_thread(conv)
 
