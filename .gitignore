@@ -1,2 +1,4 @@
 /.idea
+/dist
 *.py[co]
+*.egg-info
