@@ -103,6 +103,7 @@ def main():
     while True:
         for t in threads:
             if not t.is_alive():
+                save_cursor(conv.cursor)
                 sys.exit(2)
         time.sleep(thread_check_interval)
 
