@@ -104,7 +104,8 @@ def main():
         for t in threads:
             if not t.is_alive():
                 save_cursor(conv.cursor)
-                sys.exit(2)
+                log.error('Thread %s is dead, exiting', t.name)
+                sys.exit(1)
         time.sleep(thread_check_interval)
 
 
