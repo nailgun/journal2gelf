@@ -48,7 +48,7 @@ class UdpClient(object):
             else:
                 message['host'] = self.source
 
-        message_str = json.dumps(message).encode('utf-8')
+        message_str = json.dumps(message, separators=(',', ':'))
         output = zlib.compress(message_str)
         if len(output) > self.mtu:
             for chunk in self.chunks(output):
