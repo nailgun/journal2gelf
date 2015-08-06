@@ -75,9 +75,10 @@ def main():
         last_saved = None
         while True:
             time.sleep(cursor_save_interval)
-            if conv.cursor != last_saved:
-                save_cursor(conv.cursor)
-                last_saved = conv.cursor
+            c = conv.cursor
+            if c != last_saved:
+                save_cursor(c)
+                last_saved = c
 
     t = threading.Thread(target=converter_thread, name='ConverterThread')
     t.daemon = True
