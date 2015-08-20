@@ -67,6 +67,14 @@ class Converter(object):
 # See https://www.graylog.org/resources/gelf-2/#specs
 # And http://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html
 def convert_record(src, excludes=set(), lower=True):
+    for k, v in src.iteritems():
+        conv = field_converters.get(k)
+        if conv:
+            try:
+                src[k] = conv(v)
+            except ValueError:
+                pass
+
     dst = {
         b'version': b'1.1',
         b'host': src.pop(b'_HOSTNAME', None),
@@ -79,12 +87,6 @@ def convert_record(src, excludes=set(), lower=True):
     for k, v in src.iteritems():
         if k in excludes:
             continue
-        conv = field_converters.get(k)
-        if conv:
-            try:
-                v = conv(v)
-            except ValueError:
-                pass
         if lower:
             k = k.lower()
         dst[b'_'+k] = v
