@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='journal2gelf',
-    version='1.0.5',
+    version='1.0.6',
     description='Export structured log records from a systemd journal and send them to a Graylog2 server.',
     url='https://github.com/nailgun/journal2gelf',
     author='Nailgun',
