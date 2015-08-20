@@ -1,9 +1,9 @@
 from __future__ import division, absolute_import
 import json
 import logging
-from systemd import journal
 
 from . import gelfclient
+from .reader import Reader
 
 
 log = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class Converter(object):
         self.cursor = None
 
     def run(self, merge=False, cursor=None):
-        j = journal.Reader(converters=field_converters)
+        j = Reader()
 
         try:
             j.next()
@@ -55,7 +55,7 @@ class Converter(object):
             j.seek_tail()
             j.get_previous()
 
-        for record in read_journal(j):
+        for record in j:
             self.cursor = record['__CURSOR']
             record = convert_record(record, excludes=self.exclude_fields, lower=self.lower)
             if self.send:
@@ -64,31 +64,30 @@ class Converter(object):
                 print json.dumps(record, indent=2)
 
 
-def read_journal(j):
-    while True:
-        j.wait()
-        for record in j:
-            yield record
-
-
 # See https://www.graylog.org/resources/gelf-2/#specs
 # And http://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html
 def convert_record(src, excludes=set(), lower=True):
     dst = {
-        'version': '1.1',
-        'host': src.pop(b'_HOSTNAME', None),
-        'short_message': src.pop(b'MESSAGE', None),
-        'timestamp': src.pop(b'__REALTIME_TIMESTAMP', None),
-        'level': src.pop(b'PRIORITY', None),
-        '_facility': src.get(b'SYSLOG_IDENTIFIER') or src.get(b'_COMM')
+        b'version': b'1.1',
+        b'host': src.pop(b'_HOSTNAME', None),
+        b'short_message': src.pop(b'MESSAGE', None),
+        b'timestamp': src.pop(b'__REALTIME_TIMESTAMP', None),
+        b'level': src.pop(b'PRIORITY', None),
+        b'_facility': src.get(b'SYSLOG_IDENTIFIER') or src.get(b'_COMM')
     }
 
     for k, v in src.iteritems():
         if k in excludes:
             continue
+        conv = field_converters.get(k)
+        if conv:
+            try:
+                v = conv(v)
+            except ValueError:
+                pass
         if lower:
             k = k.lower()
-        dst['_'+k] = v
+        dst[b'_'+k] = v
 
     return dst
 
@@ -105,21 +104,16 @@ def convert_monotonic_timestamp(value):
 
 
 field_converters = {
-    b'_BOOT_ID': unicode,
     b'__MONOTONIC_TIMESTAMP': convert_monotonic_timestamp,
-    b'COREDUMP': unicode,
     b'EXIT_STATUS': int,
     b'_AUDIT_LOGINUID': int,
-    b'_MACHINE_ID': unicode,
     b'_PID': int,
     b'COREDUMP_UID': int,
     b'COREDUMP_SESSION': int,
     b'SESSION_ID': int,
     b'_SOURCE_REALTIME_TIMESTAMP': convert_timestamp,
-    b'__CURSOR': unicode,
     b'_GID': int,
     b'INITRD_USEC': int,
-    b'MESSAGE_ID': unicode,
     b'ERRNO': int,
     b'SYSLOG_FACILITY': int,
     b'__REALTIME_TIMESTAMP': convert_timestamp,
@@ -135,7 +129,6 @@ field_converters = {
     b'COREDUMP_SIGNAL': int,
     b'COREDUMP_GID': int,
     b'_SOURCE_MONOTONIC_TIMESTAMP': convert_monotonic_timestamp,
-    b'COREDUMP_TIMESTAMP': unicode,
     b'LEADER': int,
     b'CODE_LINE': int
 }
