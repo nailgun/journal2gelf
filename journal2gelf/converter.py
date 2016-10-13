@@ -18,7 +18,7 @@ default_exclude_fields = frozenset([
     b'_AUDIT_LOGINUID',
     b'_SYSTEMD_OWNER_UID',
     b'_SOURCE_REALTIME_TIMESTAMP',
-    b'_SYSTEMD_SESSION'
+    b'_SYSTEMD_SESSION',
 ])
 
 
@@ -89,6 +89,8 @@ def convert_record(src, excludes=set(), lower=True):
             continue
         if lower:
             k = k.lower()
+        if k in system_fields:
+            k = b'_'+k
         dst[b'_'+k] = v
 
     return dst
@@ -134,3 +136,10 @@ field_converters = {
     b'LEADER': int,
     b'CODE_LINE': int
 }
+
+system_fields = frozenset([
+    b'_id',   # actually only _id and _uid are reserved in elasticsearch
+    b'_uid',  # but for consistency we rename all this fields
+    b'_gid',
+    b'_pid',
+])
