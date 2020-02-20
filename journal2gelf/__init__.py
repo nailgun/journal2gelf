@@ -112,14 +112,14 @@ def main():
 
 def save_cursor(cursor):
     try:
-        file(cursor_path, 'w').write(cursor)
+        open(cursor_path, 'w').write(cursor)
     except:
         log.exception('Failed to save cursor:')
 
 
 def load_cursor():
     try:
-        return file(cursor_path, 'r').read()
+        return open(cursor_path, 'r').read()
     except IOError:
         return None
 

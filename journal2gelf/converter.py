@@ -1,4 +1,7 @@
 from __future__ import division, absolute_import
+from __future__ import print_function
+from builtins import next
+from builtins import object
 import json
 import logging
 
@@ -37,7 +40,7 @@ class Converter(object):
         j = Reader()
 
         try:
-            j.next()
+            next(j)
         except StopIteration:
             log.warning("Journal is empty. Or maybe you don't have permissions to read it.")
         finally:
@@ -47,7 +50,7 @@ class Converter(object):
             if cursor:
                 j.seek_cursor(cursor)
                 try:
-                    j.next()
+                    next(j)
                 except StopIteration:
                     # cursor not found, journal was rotated
                     j.seek_head()
@@ -61,13 +64,13 @@ class Converter(object):
             if self.send:
                 self.gelf.log(**record)
             if self.debug:
-                print json.dumps(record, indent=2)
+                print(json.dumps(record, indent=2))
 
 
 # See https://www.graylog.org/resources/gelf-2/#specs
 # And http://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html
 def convert_record(src, excludes=set(), lower=True):
-    for k, v in src.iteritems():
+    for k, v in list(src.items()):
         conv = field_converters.get(k)
         if conv:
             try:
@@ -84,7 +87,7 @@ def convert_record(src, excludes=set(), lower=True):
         b'_facility': src.get(b'SYSLOG_IDENTIFIER') or src.get(b'_COMM')
     }
 
-    for k, v in src.iteritems():
+    for k, v in list(src.items()):
         if k in excludes:
             continue
         if lower:
