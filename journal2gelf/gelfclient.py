@@ -1,4 +1,7 @@
 from __future__ import division, absolute_import
+from builtins import str
+from builtins import range
+from builtins import object
 import socket
 import zlib
 import json
@@ -34,7 +37,7 @@ class UdpClient(object):
 
         count = 0
         message_id = hash(str(datetime.now().microsecond) + self.source)
-        for i in xrange(0, len(data), chunk_size):
+        for i in range(0, len(data), chunk_size):
             header = struct.pack('!ccqBB', '\x1e', '\x0f', message_id, count, total_chunks)
             count += 1
             yield header + data[i:i+chunk_size]
